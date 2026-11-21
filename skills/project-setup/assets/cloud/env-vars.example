@@ -1,0 +1,16 @@
+# Environment variables for the cloud environment, .env format, one KEY=value per line.
+# Paste into the environment's "Environment variables" field and fill the values there.
+# Never commit a filled copy of this file.
+
+# Vercel - create at https://vercel.com/account/tokens
+# Scope it to the whole team, not to one project: sessions use it to read the key vault AND
+# each app's own variables (vercel env pull). A token limited to the vault project gives
+# sessions the API keys but not the app's DATABASE_URL.
+VERCEL_TOKEN=
+
+# With a key vault (~/.claude/bin/coffre), stop here: every other key is read from it.
+# Without one, also fill the tokens of the services you use:
+# NEON_API_KEY=            https://console.neon.tech/app/settings/api-keys
+# SUPABASE_ACCESS_TOKEN=   https://supabase.com/dashboard/account/tokens
+# FAL_KEY=
+# ELEVENLABS_API_KEY=
