@@ -14,11 +14,11 @@ These three need the user. You do not create accounts or handle the key.
 
 1. **API key** - `RESEND_API_KEY` or `PLUNK_SECRET_KEY` (for Plunk, the **secret** key, `sk_...`). It is a secret and never passes through the chat.
 
-   - **With the vault** (preflight `vault: ok`): if the name is in `vault_keys`, there is nothing to ask. Otherwise declare the key in the panel (`references/panel.md`); the user creates it in the provider's dashboard and pastes it into the page. Once `panel show` reports it `in vault`, copy it to the project for the three environments with the command in `vercel.md`, "From the vault to the project".
+   It is a **project key**: each product has its own (a Plunk key belongs to one Plunk project; create a Resend key per product too). It lives in this project's Vercel variables, never in the user's vault. If preflight lists the same name in `vault_keys`, that key belongs to another project: do not use it, do not copy it, and do not tell the user the key is "already there".
 
-     One key per provider account is reused by every project. If the user wants a separate key for this project (Plunk keys are per Plunk project), store it under a name of its own, for example `PLUNK_SECRET_KEY_<PROJECT>`, and copy it into the project as `PLUNK_SECRET_KEY`.
+   - **With the panel** (`references/panel.md`): declare the key with `--scope project`; the user creates it in the provider's dashboard, for this product, and pastes it into the page, which stores it in the project's Vercel variables for the three environments. This needs the Vercel project to exist, which it does at this step.
 
-   - **Without the vault**: the user adds it to Vercel themselves:
+   - **Without the panel**: the user adds it to Vercel themselves:
 
      ```bash
      vercel env add RESEND_API_KEY production --sensitive

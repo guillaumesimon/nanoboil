@@ -2,15 +2,20 @@
 // Companion panel for project-setup: a local page that shows the setup's progress,
 // the API keys the project needs, and what is left for the user to do.
 //
-//   panel.mjs init  <state.json> --name <project> [--lang fr|en]
+//   panel.mjs init  <state.json> --name <project> --dir <project directory> [--lang fr|en]
 //   panel.mjs step  <state.json> <id> <pending|running|done|skipped|failed> [--label L] [--detail D] [--url U] [--needs KEY[,KEY]]
-//   panel.mjs key   <state.json> <NAME> [--label L] [--url U] [--note N]     a key this project needs
+//   panel.mjs key   <state.json> <NAME> [--scope project|account] [--label L] [--url U] [--note N]
 //   panel.mjs todo  <state.json> <id> <open|done> [--label L] [--detail D] [--url U] [--copy <file>]
 //   panel.mjs show  <state.json>                                             text summary, for the agent
 //   panel.mjs serve <state.json> [--port N] [--ttl <minutes>]                prints the URL to open
 //
-// Keys typed in the page go straight to the user's key vault (`coffre set NAME`, value on
-// stdin). They are never written to the state file, never logged, never returned by the API.
+// A key has a scope, and the scope decides where it is stored:
+//   project  a key that belongs to this one project (Plunk, Resend, Stripe...): it goes to the
+//            project's own Vercel environment variables (`vercel env add`, three environments).
+//   account  a key of the user's own account, reused by every project (Neon, fal.ai...): it goes
+//            to the user's key vault (`coffre set NAME`).
+// Values travel on stdin. They are never written to the state file, never logged, never
+// returned by the API.
 // No dependencies.
 
 import http from "node:http";
@@ -23,16 +28,18 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const COFFRE = process.env.PANEL_COFFRE || path.join(os.homedir(), ".claude/bin/coffre");
+const VERCEL = process.env.PANEL_VERCEL || "vercel";
 const KEY_NAME = /^[A-Z][A-Z0-9_]{1,63}$/;
+const ENVIRONMENTS = ["production", "preview", "development"];
 
 // Where each known key is created. Anything else is described by the caller.
 const KNOWN_KEYS = {
-  RESEND_API_KEY: { label: "Resend", url: "https://resend.com/api-keys" },
-  PLUNK_SECRET_KEY: { label: "Plunk", url: "https://www.useplunk.com", note: "Project settings > API keys: the secret key (sk_...)" },
-  NEON_API_KEY: { label: "Neon", url: "https://console.neon.tech/app/settings/api-keys" },
-  SUPABASE_ACCESS_TOKEN: { label: "Supabase", url: "https://supabase.com/dashboard/account/tokens" },
-  FAL_KEY: { label: "fal.ai", url: "https://fal.ai/dashboard/keys" },
-  ELEVENLABS_API_KEY: { label: "ElevenLabs", url: "https://elevenlabs.io/app/settings/api-keys" },
+  RESEND_API_KEY: { scope: "project", label: "Resend", url: "https://resend.com/api-keys", note: "One key per project" },
+  PLUNK_SECRET_KEY: { scope: "project", label: "Plunk", url: "https://www.useplunk.com", note: "Project settings > API keys: the secret key (sk_...)" },
+  NEON_API_KEY: { scope: "account", label: "Neon", url: "https://console.neon.tech/app/settings/api-keys" },
+  SUPABASE_ACCESS_TOKEN: { scope: "account", label: "Supabase", url: "https://supabase.com/dashboard/account/tokens" },
+  FAL_KEY: { scope: "account", label: "fal.ai", url: "https://fal.ai/dashboard/keys" },
+  ELEVENLABS_API_KEY: { scope: "account", label: "ElevenLabs", url: "https://elevenlabs.io/app/settings/api-keys" },
 };
 
 // --- arguments ----------------------------------------------------------------
@@ -78,10 +85,13 @@ function upsert(list, id, fields) {
 
 // --- vault ------------------------------------------------------------------------
 
-function run(args, input) {
+function exec(bin, args, input, cwd) {
   return new Promise((resolve) => {
-    if (!fs.existsSync(COFFRE)) return resolve({ code: 127, out: "" });
-    const child = spawn(COFFRE, args, { stdio: ["pipe", "pipe", "pipe"] });
+    // The vault's own ids must not leak into a `vercel` call meant for the project.
+    const env = { ...process.env };
+    delete env.VERCEL_ORG_ID;
+    delete env.VERCEL_PROJECT_ID;
+    const child = spawn(bin, args, { stdio: ["pipe", "pipe", "pipe"], cwd, env });
     let out = "";
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));
@@ -96,16 +106,64 @@ function run(args, input) {
   });
 }
 
-// Names only. The listing never contains a readable secret.
-async function vaultNames() {
-  const { code, out } = await run(["ls"]);
-  if (code !== 0) return null;
-  const names = [];
+function run(args, input) {
+  if (!fs.existsSync(COFFRE)) return Promise.resolve({ code: 127, out: "" });
+  return exec(COFFRE, args, input);
+}
+
+// Names only. The listings never contain a readable secret.
+function parseNames(out) {
+  const names = new Set();
   for (const line of out.split("\n")) {
     const m = line.match(/^\s*([A-Z][A-Z0-9_]+)\s+\S/);
-    if (m) names.push(m[1]);
+    if (m) names.add(m[1]);
   }
-  return names;
+  return [...names];
+}
+
+async function vaultNames() {
+  const { code, out } = await run(["ls"]);
+  return code === 0 ? parseNames(out) : null;
+}
+
+// --- the project's own Vercel variables ------------------------------------------------
+
+// The directory is linked once `vercel link` has written .vercel/project.json.
+function linkedDir(state) {
+  return state.dir && fs.existsSync(path.join(state.dir, ".vercel/project.json")) ? state.dir : null;
+}
+
+// null: no linked Vercel project yet, or it cannot be listed.
+async function projectNames(state) {
+  const dir = linkedDir(state);
+  if (!dir) return null;
+  const { code, out } = await exec(VERCEL, ["env", "ls"], "", dir);
+  return code === 0 ? parseNames(out) : null;
+}
+
+// A project key is set for the three environments: `development` is the one `vercel env pull`
+// returns, so local development and cloud sessions need it too.
+async function setProjectKey(state, name, value) {
+  const dir = linkedDir(state);
+  if (!dir) return "project-unlinked";
+  for (const environment of ENVIRONMENTS) {
+    const { code } = await exec(VERCEL, ["env", "add", name, environment, "--force"], value, dir); // output discarded on purpose
+    if (code !== 0) return "project-failed";
+  }
+  return null;
+}
+
+function scopeOf(state, name) {
+  return state.keys.find((k) => k.id === name)?.scope || KNOWN_KEYS[name]?.scope || "account";
+}
+
+// present | missing | unlinked (project key, no Vercel project yet) | unknown (store unreachable)
+function keyState(state, name, vault, project) {
+  if (scopeOf(state, name) === "project") {
+    if (!linkedDir(state)) return "unlinked";
+    return project === null ? "unknown" : project.includes(name) ? "present" : "missing";
+  }
+  return vault === null ? "unknown" : vault.includes(name) ? "present" : "missing";
 }
 
 // --- commands -----------------------------------------------------------------------
@@ -114,6 +172,7 @@ const commands = {
   init() {
     const state = readState();
     state.name = opt.name || state.name;
+    if (opt.dir) state.dir = path.resolve(opt.dir);
     state.lang = opt.lang || state.lang || "en";
     writeState(state);
     console.log(`state: ${statePath}`);
@@ -133,7 +192,11 @@ const commands = {
     if (!KEY_NAME.test(name || "")) fail("usage: key <state> <NAME>   (NAME in capitals, as the code reads it)");
     const known = KNOWN_KEYS[name] || {};
     const state = readState();
-    upsert(state.keys, name, { label: opt.label ?? known.label ?? name, url: opt.url ?? known.url, note: opt.note ?? known.note });
+    const existing = state.keys.find((k) => k.id === name);
+    // An unknown key is a project key unless stated otherwise: the vault is for the user's own accounts only.
+    const scope = opt.scope ?? existing?.scope ?? known.scope ?? "project";
+    if (!["project", "account"].includes(scope)) fail("--scope is project or account");
+    upsert(state.keys, name, { scope, label: opt.label ?? known.label ?? name, url: opt.url ?? known.url, note: opt.note ?? known.note });
     writeState(state);
   },
 
@@ -148,27 +211,35 @@ const commands = {
 
   async show() {
     const state = readState();
-    const names = await vaultNames();
-    console.log(`project: ${state.name}`);
+    const [vault, project] = await Promise.all([vaultNames(), projectNames(state)]);
+    const words = {
+      project: { present: "in the project's Vercel variables", missing: "MISSING", unlinked: "MISSING (no Vercel project yet: the user can add it once the project is linked)", unknown: "project variables unreachable" },
+      account: { present: "in vault", missing: "MISSING", unknown: "vault unreachable" },
+    };
+    console.log(`project: ${state.name}${state.dir ? "" : "  (no --dir given at init: project keys cannot be stored)"}`);
     for (const s of state.steps) {
-      const missing = (s.needs || []).filter((n) => names !== null && !names.includes(n));
-      const ready = s.needs?.length && !missing.length && s.status === "pending" ? " (its keys are in the vault: resume it)" : "";
+      const missing = (s.needs || []).filter((n) => keyState(state, n, vault, project) !== "present");
+      const ready = s.needs?.length && !missing.length && s.status === "pending" ? " (its keys have arrived: resume it)" : "";
       console.log(`step ${s.id}: ${s.status}${missing.length ? ` (waiting for ${missing.join(", ")})` : ready}`);
     }
-    for (const k of state.keys) console.log(`key ${k.id}: ${names === null ? "vault unreachable" : names.includes(k.id) ? "in vault" : "MISSING"}`);
+    for (const k of state.keys) {
+      const scope = scopeOf(state, k.id);
+      console.log(`key ${k.id} [${scope}]: ${words[scope][keyState(state, k.id, vault, project)]}`);
+    }
     for (const t of state.todos) console.log(`todo ${t.id}: ${t.done ? "done (ticked by the user or by you)" : "open"}`);
   },
 
   serve() {
     const token = crypto.randomBytes(18).toString("hex");
     const ttl = Number(opt.ttl || 180) * 60_000;
-    let names = null;
+    let names = { vault: null, project: null };
     let namesAt = 0;
     let lastHit = Date.now();
 
     async function refreshNames(force) {
       if (force || Date.now() - namesAt > 30_000) {
-        names = await vaultNames();
+        const [vault, project] = await Promise.all([vaultNames(), projectNames(readState())]);
+        names = { vault, project };
         namesAt = Date.now();
       }
       return names;
@@ -217,8 +288,12 @@ const commands = {
 
       if (req.method === "GET" && url.pathname === "/api/state") {
         const state = readState();
-        const vault = await refreshNames(url.searchParams.has("refresh"));
-        return send(res, 200, { ...state, vault: vault === null ? null : vault });
+        const { vault, project } = await refreshNames(url.searchParams.has("refresh"));
+        const wanted = new Set([...state.keys.map((k) => k.id), ...state.steps.flatMap((s) => s.needs || [])]);
+        const keyStates = {};
+        for (const name of wanted) keyStates[name] = keyState(state, name, vault, project);
+        const keys = state.keys.map((k) => ({ ...k, scope: scopeOf(state, k.id) }));
+        return send(res, 200, { ...state, dir: undefined, keys, keyStates, vaultUp: vault !== null, linked: Boolean(linkedDir(state)) });
       }
 
       if (req.method === "POST" && url.pathname === "/api/key") {
@@ -227,10 +302,23 @@ const commands = {
         const value = String(body?.value || "").trim();
         if (!KEY_NAME.test(name)) return send(res, 400, { error: "name" });
         if (!value || value.length > 10_000) return send(res, 400, { error: "value" });
-        const { code } = await run(["set", name], value); // output discarded on purpose
-        if (code !== 0) return send(res, 502, { error: code === 127 ? "vault-missing" : "vault-failed" });
+        const state = readState();
+        // A declared key keeps its declared scope; only an undeclared one takes the page's choice.
+        const declared = state.keys.find((k) => k.id === name);
+        const scope = declared ? scopeOf(state, name) : body?.scope === "account" ? "account" : "project";
+        if (scope === "project") {
+          const error = await setProjectKey(state, name, value);
+          if (error) return send(res, error === "project-unlinked" ? 409 : 502, { error });
+          if (!declared) {
+            upsert(state.keys, name, { scope, label: name });
+            writeState(state);
+          }
+        } else {
+          const { code } = await run(["set", name], value); // output discarded on purpose
+          if (code !== 0) return send(res, 502, { error: code === 127 ? "vault-missing" : "vault-failed" });
+        }
         await refreshNames(true);
-        return send(res, 200, { ok: true, name });
+        return send(res, 200, { ok: true, name, scope });
       }
 
       if (req.method === "POST" && url.pathname === "/api/todo") {

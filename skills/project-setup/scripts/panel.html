@@ -47,6 +47,7 @@
   @keyframes pulse { 50% { opacity: .25; } }
   @media (prefers-reduced-motion: reduce) { .pill.running::before { animation: none; } .bar > div { transition: none; } }
   form { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
   input[type=password], input[type=text] { flex: 1; min-width: 150px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
   input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
   button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
@@ -95,11 +96,15 @@
       steps: "Progress", keys: "API keys", todos: "For you to do",
       status: { pending: "To do", running: "In progress", done: "Done", skipped: "Skipped", failed: "Failed" },
       waiting: "Waiting for the key ", ready: "Key received. Tell Claude to carry on with this step.", waitPill: "Waiting for you",
-      inVault: "In the vault", missing: "Missing", create: "Create the key", paste: "Paste the key", add: "Add to the vault",
-      replace: "Replace", saved: "Saved in the vault.", failedSave: "The vault refused the key. Check that `vercel login` is still valid, then try again.",
-      vaultDown: "The vault cannot be reached, so keys cannot be added from here.", other: "Another key", name: "NAME_IN_CAPITALS",
+      inVault: "In your vault", inProject: "In the project", missing: "Missing", create: "Create the key", paste: "Paste the key",
+      addVault: "Add to my vault", addProject: "Add to the project",
+      savedVault: "Saved in your vault.", savedProject: "Saved in the project's Vercel variables.",
+      failedSave: "The key was refused. Check that `vercel login` is still valid, then try again.",
+      unlinked: "Can be added as soon as the Vercel project exists.", unknown: "Cannot be checked right now",
+      scopeProject: "Key of this project", scopeAccount: "Key of my account",
+      forProject: "For this project only", forAccount: "For all my projects (vault)", other: "Another key", name: "NAME_IN_CAPITALS",
       badName: "A name in capitals, digits and underscores, for example STRIPE_SECRET_KEY.",
-      keysNote: "A key goes straight from this page to your vault. It is not shown again, and it never passes through the chat.",
+      keysNote: "A key of this project goes to the project's Vercel variables; a key of your own account goes to your vault. Neither is shown again, and neither passes through the chat.",
       copy: "Copy", copied: "Copied", open: "Open", noSteps: "Nothing has started yet.", sumDone: " of ", sumSteps: " steps done", sending: "Sending...",
       noTodos: "Nothing for now."
     },
@@ -107,11 +112,15 @@
       steps: "Avancement", keys: "Clés API", todos: "À faire de ton côté",
       status: { pending: "À faire", running: "En cours", done: "Fait", skipped: "Passé", failed: "Échec" },
       waiting: "En attente de la clé ", ready: "Clé reçue. Dis à Claude de reprendre cette étape.", waitPill: "En attente de toi",
-      inVault: "Dans le coffre", missing: "Manquante", create: "Créer la clé", paste: "Coller la clé", add: "Ajouter au coffre",
-      replace: "Remplacer", saved: "Enregistrée dans le coffre.", failedSave: "Le coffre a refusé la clé. Vérifie que `vercel login` est toujours valide, puis réessaie.",
-      vaultDown: "Le coffre est injoignable : impossible d'ajouter une clé depuis cette page.", other: "Une autre clé", name: "NOM_EN_MAJUSCULES",
+      inVault: "Dans ton coffre", inProject: "Dans le projet", missing: "Manquante", create: "Créer la clé", paste: "Coller la clé",
+      addVault: "Ajouter à mon coffre", addProject: "Ajouter au projet",
+      savedVault: "Enregistrée dans ton coffre.", savedProject: "Enregistrée dans les variables Vercel du projet.",
+      failedSave: "La clé a été refusée. Vérifie que `vercel login` est toujours valide, puis réessaie.",
+      unlinked: "À ajouter dès que le projet Vercel existe.", unknown: "Vérification impossible pour l'instant",
+      scopeProject: "Clé de ce projet", scopeAccount: "Clé de mon compte",
+      forProject: "Pour ce projet seulement", forAccount: "Pour tous mes projets (coffre)", other: "Une autre clé", name: "NOM_EN_MAJUSCULES",
       badName: "Un nom en majuscules, chiffres et tirets bas, par exemple STRIPE_SECRET_KEY.",
-      keysNote: "Une clé va directement de cette page à ton coffre. Elle n'est plus affichée ensuite et ne passe jamais par le chat.",
+      keysNote: "Une clé de ce projet va dans les variables Vercel du projet ; une clé de ton compte va dans ton coffre. Aucune n'est réaffichée ni ne passe par le chat.",
       copy: "Copier", copied: "Copié", open: "Ouvrir", noSteps: "Rien n'a encore démarré.", sumDone: " sur ", sumSteps: " étapes faites", sending: "Envoi...",
       noTodos: "Rien pour l'instant."
     }
@@ -140,17 +149,26 @@
     }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, data: j }; }); });
   }
 
-  function keyForm(name, askName, hasValue) {
+  // scope: "project" or "account" for a declared key; null lets the user choose (another key).
+  function keyForm(name, scope, linked) {
     var form = el("form");
-    var nameInput = null;
-    if (askName) {
+    var nameInput = null, scopeSelect = null;
+    if (!scope) {
       nameInput = el("input"); nameInput.type = "text"; nameInput.placeholder = t.name;
       nameInput.autocomplete = "off"; nameInput.spellcheck = false; nameInput.setAttribute("aria-label", t.name);
       form.appendChild(nameInput);
+      scopeSelect = el("select"); scopeSelect.setAttribute("aria-label", t.other);
+      [["project", t.forProject], ["account", t.forAccount]].forEach(function (o) {
+        if (o[0] === "project" && !linked) return;
+        var op = el("option", null, o[1]); op.value = o[0]; scopeSelect.appendChild(op);
+      });
+      form.appendChild(scopeSelect);
     }
+    function chosen() { return scope || scopeSelect.value; }
     var input = el("input"); input.type = "password"; input.placeholder = t.paste;
     input.autocomplete = "off"; input.setAttribute("aria-label", t.paste + (name ? " " + name : ""));
-    var btn = el("button", "primary", hasValue ? t.replace : t.add); btn.type = "submit";
+    var btn = el("button", "primary", chosen() === "project" ? t.addProject : t.addVault); btn.type = "submit";
+    if (scopeSelect) scopeSelect.addEventListener("change", function () { btn.textContent = chosen() === "project" ? t.addProject : t.addVault; });
     var msg = el("div", "msg"); msg.setAttribute("role", "status");
     form.appendChild(input); form.appendChild(btn);
     var wrap = el("div"); wrap.appendChild(form); wrap.appendChild(msg);
@@ -160,11 +178,11 @@
       if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(keyName)) { msg.className = "msg bad"; msg.textContent = t.badName; return; }
       if (!input.value.trim()) { input.focus(); return; }
       busy = true; btn.disabled = true; msg.className = "msg"; msg.textContent = t.sending;
-      api("/api/key", { name: keyName, value: input.value }).then(function (r) {
+      api("/api/key", { name: keyName, value: input.value, scope: chosen() }).then(function (r) {
         input.value = "";
         busy = false; btn.disabled = false;
-        if (r.ok) { msg.className = "msg ok"; msg.textContent = t.saved; if (nameInput) nameInput.value = ""; setTimeout(function () { lastDrawn = ""; load(true); }, 900); }
-        else { msg.className = "msg bad"; msg.textContent = r.data.error === "name" ? t.badName : t.failedSave; }
+        if (r.ok) { msg.className = "msg ok"; msg.textContent = r.data.scope === "project" ? t.savedProject : t.savedVault; if (nameInput) nameInput.value = ""; setTimeout(function () { lastDrawn = ""; load(true); }, 900); }
+        else { msg.className = "msg bad"; msg.textContent = r.data.error === "name" ? t.badName : r.data.error === "project-unlinked" ? t.unlinked : t.failedSave; }
       }).catch(function () { input.value = ""; busy = false; btn.disabled = false; msg.className = "msg bad"; msg.textContent = t.failedSave; });
     });
     return wrap;
@@ -191,11 +209,13 @@
       var li = el("li"), row = el("div", "row"), grow = el("div", "grow");
       grow.appendChild(el("div", "label", x.label || x.id));
       if (x.detail) grow.appendChild(el("div", "detail", x.detail));
-      // What the step is waiting for is worked out from the vault, so it is never stale.
+      // What the step is waiting for is worked out from where each key is stored, so it is never stale.
       var open = x.status === "pending" || x.status === "running";
-      var lacking = Array.isArray(s.vault) && open ? (x.needs || []).filter(function (n) { return s.vault.indexOf(n) === -1; }) : [];
+      var states = s.keyStates || {};
+      var lacking = open ? (x.needs || []).filter(function (n) { return states[n] === "missing" || states[n] === "unlinked"; }) : [];
+      var allIn = (x.needs || []).length && (x.needs || []).every(function (n) { return states[n] === "present"; });
       if (lacking.length) grow.appendChild(el("div", "detail", t.waiting + lacking.join(", ")));
-      else if (x.status === "pending" && (x.needs || []).length && Array.isArray(s.vault)) grow.appendChild(el("div", "msg ok", t.ready));
+      else if (x.status === "pending" && allIn) grow.appendChild(el("div", "msg ok", t.ready));
       if (safeUrl(x.url)) { var d = el("div", "detail"); d.appendChild(link(x.url, x.url.replace(/^https:\/\//, ""))); grow.appendChild(d); }
       row.appendChild(grow);
       if (lacking.length) row.appendChild(el("span", "pill missing", t.waitPill));
@@ -205,30 +225,34 @@
 
     // keys
     var keys = document.getElementById("keys"); keys.textContent = "";
-    var vaultUp = Array.isArray(s.vault);
     s.keys.forEach(function (k) {
-      var present = vaultUp && s.vault.indexOf(k.id) !== -1;
+      var state = (s.keyStates || {})[k.id] || "unknown";
+      var project = k.scope === "project";
       var li = el("li"), row = el("div", "row"), grow = el("div", "grow");
       var label = el("div", "label", k.label || k.id);
       grow.appendChild(label);
       grow.appendChild(el("div", "detail mono", k.id));
+      grow.appendChild(el("div", "detail", project ? t.scopeProject : t.scopeAccount));
       if (k.note) grow.appendChild(el("div", "detail", k.note));
       row.appendChild(grow);
-      if (vaultUp) row.appendChild(el("span", "pill " + (present ? "ok" : "missing"), present ? t.inVault : t.missing));
+      if (state === "present") row.appendChild(el("span", "pill ok", project ? t.inProject : t.inVault));
+      else if (state === "unknown") row.appendChild(el("span", "pill pending", t.unknown));
+      else row.appendChild(el("span", "pill missing", t.missing));
       li.appendChild(row);
-      if (vaultUp && !present) {
+      if (state === "missing" || state === "unlinked") {
         if (safeUrl(k.url)) { var d = el("div", "detail"); d.appendChild(link(k.url, t.create + " ↗")); li.appendChild(d); }
-        li.appendChild(keyForm(k.id, false, false));
+        if (state === "unlinked") li.appendChild(el("div", "detail", t.unlinked));
+        else li.appendChild(keyForm(k.id, k.scope, s.linked));
       }
       keys.appendChild(li);
     });
-    if (vaultUp) {
+    if (s.linked || s.vaultUp) {
       var other = el("li");
       other.appendChild(el("div", "label", t.other));
-      other.appendChild(keyForm("", true, false));
+      other.appendChild(keyForm("", null, s.linked));
       keys.appendChild(other);
     }
-    document.getElementById("keys-note").textContent = vaultUp ? t.keysNote : t.vaultDown;
+    document.getElementById("keys-note").textContent = t.keysNote;
 
     // todos
     var todos = document.getElementById("todos"); todos.textContent = "";

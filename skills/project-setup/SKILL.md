@@ -1,6 +1,6 @@
 ---
 name: project-setup
-description: Bootstrap a new small project end to end from a short interview - verify the CLIs, scaffold the app, create the GitHub repo, create the database (Neon or Supabase), set up and link the Vercel project, write the founding documents (CLAUDE.md, PRODUCT_VISION.md, BRAND.md, CHANGELOG.md), set up product analytics (PostHog or Amplitude) with an ANALYTICS.md tracking plan built on the object-action framework, typed events and user identify, set up transactional email (Resend or Plunk), and make the project work in Claude Code cloud sessions with the same CLIs and API keys as locally. Use this skill whenever the user says "fais-moi le setup", "setup du projet", "lance un nouveau projet", "nouveau projet", "boilerplate", "bootstrap this project", "set up this project", "start a new project", or opens an empty or nearly empty directory and wants to start building. Also use it to finish a half-configured project (repo exists but no Vercel project, no database, missing founding documents, or cloud sessions where the CLIs and APIs do not work - "setup cloud", "Claude Code dans le cloud", "ça ne marche pas dans le cloud" - or with no analytics or email yet - "ajoute les analytics", "setup PostHog", "setup Amplitude", "tracking plan", "setup Resend", "setup Plunk") - the skill detects what exists and only does what is missing.
+description: Bootstrap a new small project end to end from a short interview - verify the CLIs, scaffold the app, create the GitHub repo, create the database (Neon, with Neon Auth when the product has accounts, or Supabase), set up and link the Vercel project, write the founding documents (CLAUDE.md, PRODUCT_VISION.md, BRAND.md, CHANGELOG.md), set up product analytics (PostHog or Amplitude) with an ANALYTICS.md tracking plan built on the object-action framework, typed events and user identify, set up transactional email (Resend or Plunk), and make the project work in Claude Code cloud sessions with the same CLIs and API keys as locally. Use this skill whenever the user says "fais-moi le setup", "setup du projet", "lance un nouveau projet", "nouveau projet", "boilerplate", "bootstrap this project", "set up this project", "start a new project", or opens an empty or nearly empty directory and wants to start building. Also use it to finish a half-configured project (repo exists but no Vercel project, no database, missing founding documents, or cloud sessions where the CLIs and APIs do not work - "setup cloud", "Claude Code dans le cloud", "ça ne marche pas dans le cloud" - or with no analytics or email yet - "ajoute les analytics", "setup PostHog", "setup Amplitude", "tracking plan", "setup Resend", "setup Plunk") - the skill detects what exists and only does what is missing.
 ---
 
 # Project setup
@@ -30,11 +30,13 @@ It reports each CLI as `ok`, `MISSING` (with the install command) or `NOT_LOGGED
 
 If the directory already has files, a remote, or a linked Vercel project, tell the user what you found and that you will only do what is missing.
 
-Preflight also prints `vault:`. When it is `ok`, the user keeps their API keys in a vault (`~/.claude/bin/coffre`) and `vault_keys:` lists the names already there: never ask for a key that is in that list.
+Preflight also prints `vault:`. When it is `ok`, the user keeps the API keys of their own accounts in a vault (`~/.claude/bin/coffre`) and `vault_keys:` lists the names already there: never ask for an account key that is in that list.
+
+The vault is for **account keys** only (Neon, Supabase, fal.ai: the user's own access, the same for every project). **Project keys** - issued for this one product, like the email provider's key or the analytics project key - live in this project's Vercel variables, and each project gets its own. A project key's name in `vault_keys` does not count: it belongs to another project. `references/panel.md`, "Two kinds of keys", has the rule.
 
 ## 1b. Companion panel
 
-Start the companion panel now and open it for the user - see `references/panel.md`. It is a local page that shows the steps as they run, the API keys this project needs (present in the vault or missing, with a field to add a missing one), and what is left for the user to do. Keep it current for the rest of the setup: declare the steps, keys and to-dos once the interview is over, and update each step when it starts and when it ends.
+Start the companion panel now and open it for the user - see `references/panel.md`. It is a local page that shows the steps as they run, the API keys this project needs (present or missing, with a field to add a missing one, stored in the project's Vercel variables or in the vault depending on the key), and what is left for the user to do. Keep it current for the rest of the setup: declare the steps, keys and to-dos once the interview is over, and update each step when it starts and when it ends.
 
 Keys are added by the user in the panel, never in chat. The panel is a convenience: if it cannot start, continue without it.
 
@@ -52,14 +54,18 @@ Skip anything the user already told you, and anything preflight already answers.
 *Call 1 - infrastructure*
 
 3. **Stack** - Next.js App Router with TypeScript and Tailwind (default) / static site / other. If other, ask what.
-4. **Database** - Neon (plain Postgres, default when the app only needs a database) / Supabase (when it also needs auth, storage or realtime) / none.
+4. **Database** - always list Neon first and mark it as the recommended option:
+   - when the product has accounts (sign-up, sign-in, anything per user): **Neon + Neon Auth (Recommended)** - Postgres with login managed by Neon, users stored in the same database / Neon without auth / Supabase / none;
+   - when it has no accounts: **Neon (Recommended)** - plain Postgres / Supabase / none.
+
+   Needing auth is not a reason to recommend Supabase: Neon Auth covers it. Recommend Supabase only when the product needs realtime, or a login method Neon Auth does not offer (see the limits in `references/neon.md`).
 5. **Repository** - private (default) / public.
 6. **Cloud sessions** - yes (default) / no. Whether Claude Code in the cloud should work on this project. Do not ask if preflight shows `cloud_session_script: present`.
 
 *Call 2 - product tooling*
 
 7. **Analytics** - PostHog / Amplitude / none. Do not ask if preflight shows `ANALYTICS.md: exists`.
-8. **Email** - Resend / Plunk / none. If not none, ask in chat afterwards which domain to send from, or whether there is none yet.
+8. **Email** - Resend / Plunk / none. Do not describe an option as already configured because its key name is in the vault: the email key is per project. If not none, ask in chat afterwards which domain to send from, or whether there is none yet.
 9. **Brand depth** - light (three questions now, a one-page BRAND.md) / full (run the `brand-kit` skill after setup) / skip for now.
 
 **Then the product and brand questions, in one AskUserQuestion call.** Offer concrete options built from what the user said about the product - people choose well between options and describe badly from scratch:
@@ -77,10 +83,10 @@ Before creating anything, show one short recap and wait for a clear yes. These a
 State exactly:
 
 - the GitHub repo that will be created (`owner/name`, visibility) and that the first commit will be **pushed** to it;
-- the database project that will be created (provider, name, region - default to an EU region);
+- the database project that will be created (provider, name, region - default to an EU region), and whether Neon Auth will be enabled on it;
 - the Vercel project that will be created and linked, that its **first deployment goes to production** (Vercel always does this on a new project; it will be the bare scaffold), and that **every later push to `main` deploys to production**;
-- the analytics project and the email provider, what the user will have to do themselves (verify the sending domain; add the email API key in the panel if the vault does not have it yet), and that one test email will be sent to their own address;
-- the keys the project needs: which are already in the vault, and which are waiting for the user in the panel;
+- the analytics project and the email provider, what the user will have to do themselves (verify the sending domain; create this project's email API key and add it in the panel), and that one test email will be sent to their own address;
+- the keys the project needs: the project keys the user will create and add in the panel (stored in this project's Vercel variables), and the account keys, which are already in the vault or also waiting in the panel;
 - if cloud sessions were chosen: the session hook that will be committed in `.claude/settings.json`, and whether the user has a one-time environment to create (preflight `cloud_env: none`);
 - the files that will be written, and anything preflight found that will be left untouched.
 
@@ -92,7 +98,7 @@ Run the steps in this order. The order matters: scaffolding tools refuse a direc
 2. **Git** - `git init -b main` if needed. Make sure `.gitignore` covers `.env*`, `.vercel` and `node_modules` before the first commit.
 3. **Founding documents** - step 5 below. Written before the first commit so the repo starts with them.
 4. **First commit**, then **GitHub** - see `references/github.md`.
-5. **Database** - read `references/neon.md` or `references/supabase.md`, whichever was chosen. Skip if none.
+5. **Database** - read `references/neon.md` or `references/supabase.md`, whichever was chosen. Skip if none. With Neon Auth, the service is enabled here and its trusted domains are added after the Vercel step, once the app has a URL.
 6. **Vercel** - see `references/vercel.md`: link (which also connects the repo), environment variables, first deployment.
 7. **Analytics** - see `references/analytics.md`. Skip if none.
 8. **Email** - see `references/email.md`. Skip if none.
@@ -100,7 +106,7 @@ Run the steps in this order. The order matters: scaffolding tools refuse a direc
 
 Steps 7 to 9 add code and files after the first push: commit them and push again at the end, as one or several commits. That push deploys to production now that the repo is connected, which the recap announced.
 
-Secrets (connection strings, API keys, database passwords) never appear in chat, in a commit or in a document. Pipe them from one command into the next, or into `.env.local`. API keys come from the vault (`coffre run -- <command>`); a missing one is added by the user in the panel.
+Secrets (connection strings, API keys, database passwords) never appear in chat, in a commit or in a document. Pipe them from one command into the next, or into `.env.local`. Account keys come from the vault (`coffre run -- <command>`); project keys go to the project's Vercel variables; a missing one of either kind is added by the user in the panel.
 
 A step that waits for a key does not block the others: mark it in the panel, do everything else, and come back to it.
 
@@ -133,6 +139,7 @@ Setup is done when these are all true - check each one, do not assume:
 - `git status` is clean and `git log origin/main` shows the first commit;
 - the latest deployment is `Ready` in `vercel ls`;
 - if there is a database, the app's environment has its variables (`vercel env ls`) and `.env.local` exists locally and is gitignored;
+- if Neon Auth was chosen: `neon neon-auth status` shows it enabled, the app's environment has the auth variables, and the production URL is a trusted domain. Say plainly that login screens are not built yet;
 - the documents exist (or the ones skipped are named);
 - if analytics was chosen: the build passes, ANALYTICS.md and the typed events list match, and an event was seen arriving (or you say you could not confirm it);
 - if email was chosen: the test email was sent and the user confirmed receiving it, and the state of the sending domain is stated;

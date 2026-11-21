@@ -36,15 +36,17 @@ unset value
 - `development` values are stored as **Config**, and they are what `vercel env pull .env.local` writes. A variable that local development or a cloud session needs must exist for `development`.
 - For a public value that should stay readable everywhere (`NEXT_PUBLIC_*`), add `--type config`.
 
-### From the vault to the project
+### Project keys and the vault
 
-When the user keeps their API keys in the vault (`~/.claude/bin/coffre`, preflight `vault: ok`), copy a key from there into this project without it ever being printed. `coffre run` puts every vault key in the command's environment and leaves the Vercel link of the current directory alone, so `vercel` inside it targets this project:
+The project's Vercel variables hold what the deployed app reads: the database URL, and the keys issued for this product (email provider, analytics, payments). The user adds a secret project key in the companion panel, which stores it here for the three environments - see "Two kinds of keys" in `panel.md`.
+
+The user's vault (`~/.claude/bin/coffre`) holds their own account keys, which you use to run CLIs during development (`coffre run -- neon ...`). Do not copy a key from the vault into a project as a matter of course. The one case where it is right is an account-level service the app itself calls at runtime (the app generates images with the user's fal.ai account, say), and only after asking the user, since it puts their personal key in the deployed app:
 
 ```bash
-coffre run -- sh -c 'for env in production preview development; do printf %s "$RESEND_API_KEY" | vercel env add RESEND_API_KEY "$env"; done'
+coffre run -- sh -c 'for env in production preview development; do printf %s "$FAL_KEY" | vercel env add FAL_KEY "$env"; done'
 ```
 
-The single quotes matter: the variable must be expanded by the inner shell, which has the key, not by yours, which does not. Run it from the project directory.
+The single quotes matter: the variable must be expanded by the inner shell, which has the key, not by yours, which does not. `coffre run` leaves the Vercel link of the current directory alone, so `vercel` inside it targets this project. Run it from the project directory.
 
 Then list them, names only:
 

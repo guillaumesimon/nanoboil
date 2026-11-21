@@ -8,7 +8,7 @@ The plan is the important part. Installing an SDK takes five minutes; what goes 
 
 ## 1. Project and key
 
-The project key of both platforms is a **public, client-side key** (it ships in the browser bundle). It is not a secret and can be passed on the command line.
+The project key of both platforms is a **public, client-side key** (it ships in the browser bundle). It is not a secret and can be passed on the command line. It is also a **project key**: one analytics project per product, so it goes in this project's Vercel variables and never in the user's vault.
 
 **PostHog** - if the PostHog connector is available in this session, use it to find or create the project and read its project API key (`phc_...`) and region. Otherwise ask the user to create the project at eu.posthog.com (or us.posthog.com) and paste the project key.
 
