@@ -48,7 +48,7 @@ sendEmail({ to, subject, html, text?, replyTo? }): Promise<{ id: string }>
 - Resend: use the official `resend` package.
 - Plunk (checked against docs.useplunk.com in November 2026, recheck if a call fails): no SDK, plain `fetch`. `POST https://next-api.useplunk.com/v1/send` with `Authorization: Bearer <sk_...>` (a `pk_` key is refused with 401) and a JSON body `{ to, from, subject, body, reply? }` where `body` is the HTML. The email id is at `data.emails[0].email` in the response. To trigger automations, `POST /v1/track` with `{ email, event, data? }`.
 
-Add one real template, the welcome email, written in the voice of BRAND.md. Plain and short: what the product is for, the one thing to do next, a real reply-to address.
+Add one real template, the welcome email, written in the voice of `brand/BRAND.md` when the project has one. Plain and short: what the product is for, the one thing to do next, a real reply-to address.
 
 If the project has authentication, send the welcome email when `Account Created` fires. If the provider supports event-triggered automations (Plunk), tell the user they can build sequences on the same event names as ANALYTICS.md, and keep those names identical.
 
@@ -58,7 +58,7 @@ Send one test email to the user's own address and ask them to confirm it arrived
 
 ## 4. CLAUDE.md
 
-The project CLAUDE.md template has an "Email" section: all email goes through `sendEmail`, follows BRAND.md, and never goes to real users from preview or development.
+The project CLAUDE.md template has an "Email" section: all email goes through `sendEmail`, follows the brand rules, and never goes to real users from preview or development.
 
 ## Cloud sessions
 

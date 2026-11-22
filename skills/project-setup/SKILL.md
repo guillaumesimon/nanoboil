@@ -1,6 +1,6 @@
 ---
 name: project-setup
-description: Bootstrap a new small project end to end from a short interview - verify the CLIs, scaffold the app, create the GitHub repo, create the database (Neon, with Neon Auth when the product has accounts, or Supabase), set up and link the Vercel project, write the founding documents (CLAUDE.md, PRODUCT_VISION.md, BRAND.md, CHANGELOG.md), set up product analytics (PostHog or Amplitude) with an ANALYTICS.md tracking plan built on the object-action framework, typed events and user identify, set up transactional email (Resend or Plunk), and make the project work in Claude Code cloud sessions with the same CLIs and API keys as locally. Use this skill whenever the user says "fais-moi le setup", "setup du projet", "lance un nouveau projet", "nouveau projet", "boilerplate", "bootstrap this project", "set up this project", "start a new project", or opens an empty or nearly empty directory and wants to start building. Also use it to finish a half-configured project (repo exists but no Vercel project, no database, missing founding documents, or cloud sessions where the CLIs and APIs do not work - "setup cloud", "Claude Code dans le cloud", "ça ne marche pas dans le cloud" - or with no analytics or email yet - "ajoute les analytics", "setup PostHog", "setup Amplitude", "tracking plan", "setup Resend", "setup Plunk") - the skill detects what exists and only does what is missing.
+description: Bootstrap a new small project end to end from a short interview - verify the CLIs, scaffold the app, create the GitHub repo, create the database (Neon, with Neon Auth when the product has accounts, or Supabase), set up and link the Vercel project, write the founding documents (CLAUDE.md, PRODUCT_VISION.md, CHANGELOG.md), define a first brand in four minutes through the brand-kit skill's quick mode (tokens, BRAND.md and a theme the scaffold uses), set up product analytics (PostHog or Amplitude) with an ANALYTICS.md tracking plan built on the object-action framework, typed events and user identify, set up transactional email (Resend or Plunk), and make the project work in Claude Code cloud sessions with the same CLIs and API keys as locally. Use this skill whenever the user says "fais-moi le setup", "setup du projet", "lance un nouveau projet", "nouveau projet", "boilerplate", "bootstrap this project", "set up this project", "start a new project", or opens an empty or nearly empty directory and wants to start building. Also use it to finish a half-configured project (repo exists but no Vercel project, no database, missing founding documents, or cloud sessions where the CLIs and APIs do not work - "setup cloud", "Claude Code dans le cloud", "ça ne marche pas dans le cloud" - or with no analytics or email yet - "ajoute les analytics", "setup PostHog", "setup Amplitude", "tracking plan", "setup Resend", "setup Plunk") - the skill detects what exists and only does what is missing.
 ---
 
 # Project setup
@@ -66,13 +66,18 @@ Skip anything the user already told you, and anything preflight already answers.
 
 7. **Analytics** - PostHog / Amplitude / none. Do not ask if preflight shows `ANALYTICS.md: exists`.
 8. **Email** - Resend / Plunk / none. Do not describe an option as already configured because its key name is in the vault: the email key is per project. If not none, ask in chat afterwards which domain to send from, or whether there is none yet.
-9. **Brand depth** - light (three questions now, a one-page BRAND.md) / full (run the `brand-kit` skill after setup) / skip for now.
+9. **Brand** - quick (Recommended: about four minutes now, three pairs of sites to choose between and two questions; the app starts with real colours, type and tone) / normal (the full identity with its brand site, about twenty-five minutes, run after setup) / later. Do not ask if preflight shows `brand: quick kit` or `brand: full kit`. With `brand: one-page BRAND.md`, leave that file alone and offer quick mode as its replacement.
 
-**Then the product and brand questions, in one AskUserQuestion call.** Offer concrete options built from what the user said about the product - people choose well between options and describe badly from scratch:
+**Then the product questions, in one AskUserQuestion call.** Offer concrete options built from what the user said about the product - people choose well between options and describe badly from scratch:
 
 10. The one problem this solves better than what exists (offer two or three phrasings).
 11. What it deliberately will not do in v1 (offer likely non-goals, multi-select).
-12. If brand depth is light: tone of voice, and visual feel. Offer three or four contrasted directions for each, each described by what it looks or sounds like, not by adjectives like "modern" or "clean".
+
+**Then the brand, if the answer to 9 was quick.** Run the `brand-kit` skill in quick mode now, before the recap, and hand it what you already have - the pitch, who it is for, the problem, the non-goals - so it asks none of that again. It shows pairs of real sites and one rendered page; the user points. It ends with a `brand/` folder decided but not yet written: keep its tokens, rules and session notes in the scratchpad and write them into the project at the founding-documents step, once the scaffold exists.
+
+Never ask about tone or visual feel in words here, and never describe a look with adjectives for the user to pick from. That is what this step replaced: nobody can choose between "warm and minimal" and "bold and playful", and the answer instructs nothing.
+
+If `brand-kit` is not installed, say so, set the brand to "later", and carry on.
 
 If Supabase is chosen and the account has several organizations, list them (`supabase orgs list`) and ask which one.
 
@@ -119,10 +124,12 @@ Fill the templates in `<skill-dir>/templates/` from the interview answers and wr
 | File | Source | Content |
 |---|---|---|
 | `PRODUCT_VISION.md` | `templates/PRODUCT_VISION.md` | what it is, who it is for, the problem, v1 scope, non-goals |
-| `BRAND.md` | `templates/BRAND.md` | tone of voice, visual direction, do and don't. Skip if brand depth is "skip" or "full" |
+| `brand/` | the `brand-kit` skill, quick mode | `tokens.json`, `BRAND.md`, `theme.css`, `session.md`, `CHANGELOG.md`. Only if the brand answer was quick - see below |
 | `CHANGELOG.md` | `templates/CHANGELOG.md` | first entry: the setup itself, with today's date |
 | `ANALYTICS.md` | `templates/analytics/ANALYTICS.md` | the tracking plan: objects, actions, events, properties, identity. Written in the analytics step, see `references/analytics.md` |
 | `CLAUDE.md` | `templates/CLAUDE.md` | project rules: read the vision and brand before building, maintain the changelog, stack and commands |
+
+**The brand.** With a quick kit, write `brand/` as `brand-kit`'s quick mode describes (`references/quick.md` in that skill, step 4), then make the app use it: import `brand/theme.css` from the global stylesheet, map its variables into the Tailwind theme, load the kit's fonts the way the framework does it (`next/font` on Next.js), and restyle the scaffold's home page with them so the first deployment already looks like the product. `{{brand_section}}` in `CLAUDE.md` becomes the block from `brand-kit`'s `assets/claude-md-block.md`, without its lines about `brand/site/`. With "normal" or "later" there is no `brand/` yet: `{{brand_section}}` becomes one line saying the brand is not defined, that nothing about look or tone should be invented as if it were, and that the `brand-kit` skill defines it.
 
 Never overwrite one of these files if it already exists. If it exists, leave it alone and say so; if it lacks the rules in the template (for example a `CLAUDE.md` with no changelog rule), propose the addition and let the user decide.
 
@@ -145,6 +152,6 @@ Setup is done when these are all true - check each one, do not assume:
 - if email was chosen: the test email was sent and the user confirmed receiving it, and the state of the sending domain is stated;
 - if cloud sessions were chosen: `bash scripts/cloud-session.sh --check` runs locally without error, and the hook is committed. This does not prove the cloud works - only a first cloud session does. Say so, and give the user the one command to send there.
 
-Then report in a few lines: repo URL, deployment URL, database project, analytics project, email provider and domain status, the documents written, and anything skipped or left for the user. If brand depth was "full", offer to run `brand-kit` now.
+Then report in a few lines: repo URL, deployment URL, database project, analytics project, email provider and domain status, the documents written, and anything skipped or left for the user. If the brand answer was "normal", offer to run `brand-kit` now; if it was quick, say in one line what the user decided, what was decided for them, and that `brand-kit` in normal mode turns it into the full identity.
 
 Finally rerun the preflight script once: its project section is the proof of what is in place. Bring the panel to its final state (every step `done`, `skipped` or `failed`), and tell the user if it stays open for the to-dos that remain.

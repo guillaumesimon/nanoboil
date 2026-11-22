@@ -7,8 +7,9 @@
 ## Before you build
 
 - Read [PRODUCT_VISION.md](PRODUCT_VISION.md) before adding or changing a feature. If a request falls outside the v1 scope or contradicts a non-goal, say so before building it.
-- Read [BRAND.md](BRAND.md) before writing any user-facing text or building any interface. Copy, colours, type and tone follow it.
 - If a decision changes the vision or the brand, update the document in the same change. These files describe the project as it is, not as it was on day one.
+
+{{brand_section}}
 
 ## Changelog
 
@@ -36,7 +37,7 @@ Names: events are `Object Action` in Title Case (`Project Created`); properties 
 
 ## Email
 
-All email goes through `sendEmail` in `{{email_module_path}}` ({{email_provider}}); nothing else imports the provider. Copy follows BRAND.md. Preview and development only send to `EMAIL_DEV_RECIPIENT`, never to real users. Do not send an email to real users without being asked.
+All email goes through `sendEmail` in `{{email_module_path}}` ({{email_provider}}); nothing else imports the provider. Copy follows the brand rules. Preview and development only send to `EMAIL_DEV_RECIPIENT`, never to real users. Do not send an email to real users without being asked.
 
 ## Stack
 

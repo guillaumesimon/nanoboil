@@ -22,7 +22,8 @@ skills/project-setup/
   scripts/          preflight.sh - CLI and project state check
   references/       one file per step or provider, read only when relevant:
                     scaffold, github, neon, supabase, vercel, analytics, email, cloud
-  templates/        CLAUDE.md, PRODUCT_VISION.md, BRAND.md, CHANGELOG.md
+  templates/        CLAUDE.md, PRODUCT_VISION.md, CHANGELOG.md
+                    (the brand comes from the brand-kit skill, quick mode)
     analytics/      ANALYTICS.md (tracking plan), typed events, PostHog and Amplitude wrappers
     cloud/          session hook and script committed in each project
   assets/cloud/     one-time kit for the Claude Code cloud environment:

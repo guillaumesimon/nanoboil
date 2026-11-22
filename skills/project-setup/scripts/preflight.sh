@@ -95,9 +95,17 @@ fi
 [ -f .neon ] && echo "neon: linked" || echo "neon: not linked"
 [ -f supabase/config.toml ] && echo "supabase: initialised" || echo "supabase: not initialised"
 
-for f in CLAUDE.md PRODUCT_VISION.md BRAND.md CHANGELOG.md ANALYTICS.md .env.local .gitignore; do
+for f in CLAUDE.md PRODUCT_VISION.md CHANGELOG.md ANALYTICS.md .env.local .gitignore; do
   [ -f "$f" ] && echo "$f: exists" || echo "$f: absent"
 done
+
+if [ -f brand/tokens.json ]; then
+  grep -q '"mode": *"quick"' brand/tokens.json && echo "brand: quick kit" || echo "brand: full kit"
+elif [ -f BRAND.md ]; then
+  echo "brand: one-page BRAND.md (older setup)"
+else
+  echo "brand: none"
+fi
 
 [ -f scripts/cloud-session.sh ] && echo "cloud_session_script: present" || echo "cloud_session_script: absent"
 if [ -f .claude/settings.json ] && grep -q 'cloud-session.sh' .claude/settings.json; then
