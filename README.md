@@ -1,89 +1,143 @@
 # nanoboil
 
-A Claude Code skill that takes an empty directory to a scaffolded, deployed and documented project after a short interview. You answer a dozen questions once, approve a recap, and come back to a repo you can start building in.
+A Claude Code skill that takes an empty directory to a scaffolded, deployed and documented project. You answer a dozen questions, approve a recap, and come back to a repo you can start building in.
 
-It is not a template repository. Nothing is copied from a frozen starter: the skill runs the real CLIs (`create-next-app`, `gh`, `vercel`, `neon` or `supabase`) on your own accounts, so every project starts on current versions.
+It is not a template repository. The skill runs the real CLIs (`create-next-app`, `gh`, `vercel`, `neon` or `supabase`) on your own accounts, so every project starts on current versions.
 
-## What you get
+## Quick start
 
-| | |
-|---|---|
-| **App** | Next.js App Router with TypeScript and Tailwind by default, or a static site, or what you name |
-| **GitHub** | a repository, private by default, with the first commit pushed |
-| **Database** | Neon (with Neon Auth when the product has accounts) or Supabase, or none |
-| **Hosting** | a Vercel project connected to the repo, with its environment variables |
-| **Founding documents** | `CLAUDE.md`, `PRODUCT_VISION.md`, `CHANGELOG.md`: what later sessions read before they build |
-| **Analytics** | PostHog or Amplitude, behind a typed wrapper, with an `ANALYTICS.md` tracking plan |
-| **Email** | Resend or Plunk, behind one `sendEmail` function, with a test email sent to you |
-| **Cloud sessions** | a session hook so Claude Code in the cloud has the same CLIs and keys as your machine |
+### 1. Install the command-line tools
 
-Every part is optional, and the skill is safe to run twice: it looks at what exists and only does what is missing. That also makes it the way to finish a half-configured project.
+You need [Claude Code](https://claude.com/claude-code), `git` and Node.js. Then:
 
-## Before you run it
+```bash
+npm install -g vercel neonctl
+```
 
-**It creates real resources on your accounts.** Before anything is created, the skill shows a recap and waits for a clear yes. Read it. In particular:
+And the GitHub CLI: `brew install gh` on macOS, or [another system](https://github.com/cli/cli#installation).
 
-- the first deployment of a new Vercel project goes to **production**, and so does every later push to `main`. Vercel works that way; the first deployment is the bare scaffold;
-- a database project is created on Neon or Supabase, in an EU region unless you say otherwise;
-- one test email is sent, to your own address.
+Choosing Supabase instead of Neon? Install [its CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) instead of `neonctl`.
 
-These services all have a free tier, but what a new project costs depends on your own plans: check them.
+### 2. Log in, once
 
-**API keys never pass through the chat.** A local companion panel opens beside the conversation: it shows the progress of each step and has a field for each key the project needs. It listens on `127.0.0.1` only.
+Each command opens your browser:
 
-## Requirements
+```bash
+gh auth login
+```
 
-- [Claude Code](https://claude.com/claude-code)
-- `git`, `node` and `npm` (or `pnpm`)
-- [`gh`](https://cli.github.com) and [`vercel`](https://vercel.com/docs/cli), logged in
-- [`neon`](https://neon.com/docs/reference/neon-cli) or [`supabase`](https://supabase.com/docs/guides/local-development/cli/getting-started), logged in, if you want a database
+```bash
+vercel login
+```
 
-The skill starts with a preflight that reports what is missing and how to install it. Developed on macOS; the scripts are plain bash and Node and are checked on Linux in CI.
+```bash
+neon auth
+```
 
-## Install
+### 3. Install the skill
 
-As a plugin:
+In Claude Code:
 
 ```
 /plugin install nanoboil --marketplace guillaumesimon/nanoboil
 ```
 
-Or as a plain skill, from a clone, so that your edits apply immediately:
+On an older Claude Code, the same in two steps: `/plugin marketplace add guillaumesimon/nanoboil`, then `/plugin install nanoboil@nanoboil`.
+
+### 4. Run it
+
+```bash
+mkdir my-project && cd my-project && claude
+```
+
+Then say:
+
+```
+set up this project
+```
+
+That is all. If a tool from step 1 or a login from step 2 is missing, the skill notices and gives you the exact command.
+
+## What happens when you run it
+
+| | Step | What you do |
+|---|---|---|
+| 1 | **Preflight** - checks the tools and what already exists in the directory | nothing |
+| 2 | **Interview** - what you are building, then multiple-choice questions: stack, database, analytics, email | answer, about five minutes |
+| 3 | **Recap** - the exact list of what will be created, and where | read it, say yes |
+| 4 | **Execution** - creates everything, in order | nothing, you can walk away |
+| 5 | **Report** - the repo URL, the live URL, and anything left for you | read it |
+
+A page opens in your browser during the setup: the **companion panel**. It shows each step's progress and what is waiting for you. When a step needs an API key (your email provider's, for instance), you paste it there, never in the chat.
+
+**Nothing is created before you say yes at step 3.**
+
+## What you get
+
+| | |
+|---|---|
+| **App** | Next.js with TypeScript and Tailwind by default, or a static site, or what you name |
+| **GitHub** | a repository, private by default, with the first commit pushed |
+| **Database** | Neon (with login managed by Neon Auth when your product has accounts) or Supabase, or none |
+| **Hosting** | a Vercel project connected to the repo, already deployed |
+| **Documents** | `CLAUDE.md`, `PRODUCT_VISION.md`, `CHANGELOG.md`: what Claude reads before it builds anything |
+| **Analytics** | PostHog or Amplitude, with an `ANALYTICS.md` tracking plan and typed events |
+| **Email** | Resend or Plunk, with a test email sent to you |
+| **Cloud sessions** | Claude Code in the cloud works on the project, with the same tools as your machine |
+
+Every part is optional: answer "none" and it is skipped.
+
+## Good to know before you say yes
+
+These are real resources on your accounts.
+
+- **Your scaffold goes live.** The first deployment of a new Vercel project is a production deployment, and so is every later push to `main`. That is how Vercel works.
+- **A database project is created** on Neon or Supabase, in an EU region unless you ask for another.
+- **One test email is sent**, to your own address.
+- **Cost.** These services all have a free tier, but what a new project costs depends on your own plans: check them.
+
+## Common questions
+
+**Can I run it on a project that already exists?** Yes. It looks at what is there and only does what is missing. It never overwrites a `CLAUDE.md` or another document you already have.
+
+**Can I run it twice?** Yes, for the same reason. It is also how you add a piece later: say "add analytics" or "set up cloud sessions".
+
+**Something failed halfway.** The skill stops, shows the error and deletes nothing. Fix the cause (usually an expired login), then say "continue the setup".
+
+**I do not want Next.js / Neon / analytics.** Say so in the interview. Each question has other options, and "none".
+
+**How do I undo it?** The skill never deletes anything, so removal is by hand: delete the GitHub repository, the Vercel project and the database project from their dashboards. The recap and the final report list each one by name.
+
+**How do I uninstall the skill?** `/plugin uninstall nanoboil`.
+
+## Optional extras
+
+**Key vault.** If you start projects often, `vault` keeps the API keys of your own accounts (Neon, Supabase, fal.ai...) in one place, so no project asks for them again. It also makes cloud sessions need a single token. The skill works without it. Setup and security model: [references/vault.md](skills/project-setup/references/vault.md).
+
+**Brand.** The interview can define a first brand (colours, type, tone) through a separate `brand-kit` skill. That skill is not published yet; without it the brand step is skipped.
+
+## Make it yours
+
+The skill's choices each live in one file you can edit. To edit them, install from a clone instead of the plugin:
 
 ```bash
 git clone https://github.com/guillaumesimon/nanoboil.git
+```
+
+```bash
 ln -s "$PWD/nanoboil/skills/project-setup" ~/.claude/skills/project-setup
 ```
 
-## Use
-
-In a new, empty directory, start Claude Code and say "set up this project", or type `/project-setup`. The skill answers in the language you write in.
-
-The flow: preflight, interview, recap and approval, execution, verification. All the questions come first, so you can walk away once you have approved the recap.
-
-## Optional pieces
-
-**Key vault.** `scripts/vault` keeps the API keys of your own accounts (Neon, Supabase, fal.ai...) in one Vercel project, and hands them to a command with `vault run -- <command>`. Nothing is written to disk. It is most useful with cloud sessions, where it replaces one token per service by a single `VERCEL_TOKEN`. See [references/vault.md](skills/project-setup/references/vault.md), including its security model. The skill works without it.
-
-**Brand.** The interview can define a first brand (colours, type, tone) through a separate `brand-kit` skill. That skill is not published yet; without it the brand step is skipped and the project says plainly that its brand is not defined.
-
-## Opinions
-
-These are choices, not requirements. Each lives in one file you can edit.
-
-- Neon is recommended before Supabase, and Neon Auth before a separate auth provider: [references/neon.md](skills/project-setup/references/neon.md).
-- EU regions by default.
-- Analytics events follow an object-action naming (`Project Created`) and go through a typed wrapper: [templates/analytics/](skills/project-setup/templates/analytics/).
-- The rules every new project starts with: [templates/CLAUDE.md](skills/project-setup/templates/CLAUDE.md).
-
-## Layout
+- The rules every new project starts with: [templates/CLAUDE.md](skills/project-setup/templates/CLAUDE.md)
+- Which database is recommended, and why: [references/neon.md](skills/project-setup/references/neon.md)
+- How analytics events are named and typed: [templates/analytics/](skills/project-setup/templates/analytics/)
+- The interview and the order of the steps: [SKILL.md](skills/project-setup/SKILL.md)
 
 ```
 .claude-plugin/     plugin and marketplace manifests
 skills/project-setup/
   SKILL.md          the flow: preflight, interview, recap, execute, documents, verify
-  scripts/          preflight.sh (CLI and project state), panel.mjs + panel.html (companion panel),
-                    vault (optional key vault)
+  scripts/          preflight.sh, the companion panel (panel.mjs, panel.html), vault
   references/       one file per step or provider, read only when relevant
   templates/        the documents and code written into each project
   assets/cloud/     one-time kit for a Claude Code cloud environment
@@ -93,6 +147,8 @@ scripts/check.sh    repository checks, also run in CI
 ## Contributing
 
 Issues and pull requests are welcome, especially for another provider or a system the preflight handles badly. Run `bash scripts/check.sh` before opening one.
+
+Developed on macOS. The scripts are plain bash and Node.
 
 ## License
 
