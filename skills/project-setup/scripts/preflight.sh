@@ -29,8 +29,7 @@ check() {
     echo "$name: MISSING - install with: $install"
     return
   fi
-  local out
-  if out="$("$@" 2>&1)"; then
+  if "$@" >/dev/null 2>&1; then
     echo "$name: ok"
   else
     echo "$name: NOT_LOGGED_IN - run: $login"
@@ -81,7 +80,7 @@ fi
 echo
 echo "## project ($(pwd))"
 
-entries="$(ls -A 2>/dev/null | grep -v '^\.DS_Store$' | wc -l | tr -d ' ')"
+entries="$(find . -mindepth 1 -maxdepth 1 ! -name .DS_Store 2>/dev/null | wc -l | tr -d ' ')"
 echo "files_in_dir: $entries"
 
 # A directory nested in another repository is not a repository of its own.
