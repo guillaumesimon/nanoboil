@@ -78,12 +78,12 @@ Where a key is stored depends on whose it is. Getting this wrong mixes one proje
 |---|---|---|
 | What it is | issued for this one product: the provider has one key per project, app or sending domain | the user's own access to a service, the same for everything they build |
 | Examples | Plunk secret key, Resend key, Stripe keys, a webhook secret, the PostHog or Amplitude project key | Neon API key, Supabase access token, fal.ai, ElevenLabs, Anthropic |
-| Where it lives | **this project's Vercel environment variables**, for production, preview and development | the user's vault, `~/.claude/bin/coffre` (a Vercel project of its own; `coffre ls` lists names, `coffre run -- <command>` runs a command with every key in its environment) |
+| Where it lives | **this project's Vercel environment variables**, for production, preview and development | the user's vault when they have one (`references/vault.md`: a Vercel project of its own; `vault ls` lists names, `vault run -- <command>` runs a command with every key in its environment). Without a vault: the CLI's own login, or a variable in the user's shell |
 | Who reads it | the deployed app, and local or cloud sessions through `vercel env pull .env.local` | you, to run CLIs and scripts during development |
 
 When in doubt, it is a project key: if the app reads it at runtime, it belongs to the project. A key in the vault under a project key's name (an old `PLUNK_SECRET_KEY`, say) belongs to some other project: never use it for this one and never copy it here. Tell the user it is there and ask for this project's own key.
 
-The panel stores each key according to its scope: a project key goes to `vercel env add` in the project directory, for the three environments; an account key goes to `coffre set`. Either way the value travels on standard input, is not written to the state file, not logged, and not returned by the page.
+The panel stores each key according to its scope: a project key goes to `vercel env add` in the project directory, for the three environments; an account key goes to `vault set`. Either way the value travels on standard input, is not written to the state file, not logged, and not returned by the page.
 
 - A project key can only be stored once the Vercel project exists. Until then the panel shows it as missing and says it can be added as soon as the project is linked. This is why the Vercel step comes before analytics and email.
 - Once `panel show` reports a project key present, run `vercel env pull .env.local --yes` so local development has it too.
@@ -91,7 +91,7 @@ The panel stores each key according to its scope: a project key goes to `vercel 
 - A key that is missing: tell the user it is waiting for them in the panel, continue with every step that does not need it, and come back to it.
 - You never type a key into the panel yourself, and you never ask for one in chat. If the user pastes a key in chat anyway, tell them it is now in the conversation history and that they should rotate it, then use the panel.
 
-If the vault script does not exist on this machine, the forms for account keys fail with a message; project keys still work. Fall back to the manual commands in `email.md` if the panel itself cannot run.
+If the user has no vault, do not declare account keys in the panel: its form for them needs the vault and fails with a message. The CLIs' own logins (`neon auth`, `supabase login`) cover the setup, and preflight has already checked them. Project keys work either way. Fall back to the manual commands in `email.md` if the panel itself cannot run.
 
 ## Stop it
 

@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell scripts (shellcheck is preinstalled on the runner)
+        run: |
+          shellcheck -S warning \
+            skills/project-setup/scripts/preflight.sh \
+            skills/project-setup/scripts/vault \
+            skills/project-setup/assets/cloud/environment-setup.sh \
+            skills/project-setup/templates/cloud/cloud-session.sh
+
+      - name: Panel script parses
+        run: node --check skills/project-setup/scripts/panel.mjs
+
+      - name: Manifests and skill frontmatter
+        run: bash scripts/check.sh
+
+      - name: Preflight runs in an empty directory
+        run: |
+          dir="$(mktemp -d)"
+          out="$(bash skills/project-setup/scripts/preflight.sh "$dir")"
+          echo "$out"
+          echo "$out" | grep -q '^files_in_dir: 0$'
+          echo "$out" | grep -q '^vault: none'

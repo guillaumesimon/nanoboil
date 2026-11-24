@@ -13,7 +13,7 @@
 //   project  a key that belongs to this one project (Plunk, Resend, Stripe...): it goes to the
 //            project's own Vercel environment variables (`vercel env add`, three environments).
 //   account  a key of the user's own account, reused by every project (Neon, fal.ai...): it goes
-//            to the user's key vault (`coffre set NAME`).
+//            to the user's key vault (`vault set NAME`, see references/vault.md).
 // Values travel on stdin. They are never written to the state file, never logged, never
 // returned by the API.
 // No dependencies.
@@ -27,7 +27,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const COFFRE = process.env.PANEL_COFFRE || path.join(os.homedir(), ".claude/bin/coffre");
+const VAULT = process.env.PROJECT_SETUP_VAULT || path.join(os.homedir(), ".claude/bin/vault");
 const VERCEL = process.env.PANEL_VERCEL || "vercel";
 const KEY_NAME = /^[A-Z][A-Z0-9_]{1,63}$/;
 const ENVIRONMENTS = ["production", "preview", "development"];
@@ -107,8 +107,8 @@ function exec(bin, args, input, cwd) {
 }
 
 function run(args, input) {
-  if (!fs.existsSync(COFFRE)) return Promise.resolve({ code: 127, out: "" });
-  return exec(COFFRE, args, input);
+  if (!fs.existsSync(VAULT)) return Promise.resolve({ code: 127, out: "" });
+  return exec(VAULT, args, input);
 }
 
 // Names only. The listings never contain a readable secret.

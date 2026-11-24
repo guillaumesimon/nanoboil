@@ -1,6 +1,6 @@
 ---
 name: project-setup
-description: Bootstrap a new small project end to end from a short interview - verify the CLIs, scaffold the app, create the GitHub repo, create the database (Neon, with Neon Auth when the product has accounts, or Supabase), set up and link the Vercel project, write the founding documents (CLAUDE.md, PRODUCT_VISION.md, CHANGELOG.md), define a first brand in four minutes through the brand-kit skill's quick mode (tokens, BRAND.md and a theme the scaffold uses), set up product analytics (PostHog or Amplitude) with an ANALYTICS.md tracking plan built on the object-action framework, typed events and user identify, set up transactional email (Resend or Plunk), and make the project work in Claude Code cloud sessions with the same CLIs and API keys as locally. Use this skill whenever the user says "fais-moi le setup", "setup du projet", "lance un nouveau projet", "nouveau projet", "boilerplate", "bootstrap this project", "set up this project", "start a new project", or opens an empty or nearly empty directory and wants to start building. Also use it to finish a half-configured project (repo exists but no Vercel project, no database, missing founding documents, or cloud sessions where the CLIs and APIs do not work - "setup cloud", "Claude Code dans le cloud", "ça ne marche pas dans le cloud" - or with no analytics or email yet - "ajoute les analytics", "setup PostHog", "setup Amplitude", "tracking plan", "setup Resend", "setup Plunk") - the skill detects what exists and only does what is missing.
+description: Bootstrap a new small project end to end from a short interview - check the CLIs, scaffold the app, create the GitHub repo, the database (Neon, with Neon Auth when the product has accounts, or Supabase) and the Vercel project, write the founding documents (CLAUDE.md, PRODUCT_VISION.md, CHANGELOG.md), define a first brand, set up product analytics (PostHog or Amplitude) with a typed tracking plan, transactional email (Resend or Plunk), and make the repo work in Claude Code cloud sessions. Use when the user says "set up this project", "start a new project", "bootstrap this project", "boilerplate", "fais-moi le setup", "nouveau projet", or opens an empty or nearly empty directory and wants to start building. Also use to finish a half-configured project - no Vercel project, no database, missing founding documents, no analytics or email yet ("add analytics", "tracking plan", "setup Resend"), cloud sessions where the CLIs do not work ("setup cloud") - it detects what exists and only does what is missing.
 ---
 
 # Project setup
@@ -24,19 +24,19 @@ bash <skill-dir>/scripts/preflight.sh .
 
 It reports each CLI as `ok`, `MISSING` (with the install command) or `NOT_LOGGED_IN` (with the login command), then what already exists in the directory.
 
-- `MISSING`: install it yourself with the command given, then rerun the script.
+- `MISSING`: install it yourself with the command given, then rerun the script. When the hint is a link instead of a command, the install depends on the system: follow that page, or give it to the user.
 - `NOT_LOGGED_IN`: logins are interactive. Give the user the exact command to run and wait. Do not work around a missing login.
 - Only the database CLI the user ends up choosing has to be `ok`. Do not block on the other one.
 
 If the directory already has files, a remote, or a linked Vercel project, tell the user what you found and that you will only do what is missing.
 
-Preflight also prints `vault:`. When it is `ok`, the user keeps the API keys of their own accounts in a vault (`~/.claude/bin/coffre`) and `vault_keys:` lists the names already there: never ask for an account key that is in that list.
+Preflight also prints `vault:`. The vault is optional (`references/vault.md`): a small script that keeps the API keys of the user's own accounts in one place, shared by every project. When it is `ok`, `vault_keys:` lists the names already there: never ask for an account key that is in that list. When it is `none`, the setup works without it - the CLIs' own logins are enough - so do not set one up unprompted; mention once, in the final report, that it exists.
 
 The vault is for **account keys** only (Neon, Supabase, fal.ai: the user's own access, the same for every project). **Project keys** - issued for this one product, like the email provider's key or the analytics project key - live in this project's Vercel variables, and each project gets its own. A project key's name in `vault_keys` does not count: it belongs to another project. `references/panel.md`, "Two kinds of keys", has the rule.
 
 ## 1b. Companion panel
 
-Start the companion panel now and open it for the user - see `references/panel.md`. It is a local page that shows the steps as they run, the API keys this project needs (present or missing, with a field to add a missing one, stored in the project's Vercel variables or in the vault depending on the key), and what is left for the user to do. Keep it current for the rest of the setup: declare the steps, keys and to-dos once the interview is over, and update each step when it starts and when it ends.
+Start the companion panel now and open it for the user - see `references/panel.md`. It is a local page that shows the steps as they run, the API keys this project needs (present or missing, with a field to add a missing one, stored in the project's Vercel variables, or in the user's vault for an account key), and what is left for the user to do. Keep it current for the rest of the setup: declare the steps, keys and to-dos once the interview is over, and update each step when it starts and when it ends.
 
 Keys are added by the user in the panel, never in chat. The panel is a convenience: if it cannot start, continue without it.
 
@@ -91,7 +91,7 @@ State exactly:
 - the database project that will be created (provider, name, region - default to an EU region), and whether Neon Auth will be enabled on it;
 - the Vercel project that will be created and linked, that its **first deployment goes to production** (Vercel always does this on a new project; it will be the bare scaffold), and that **every later push to `main` deploys to production**;
 - the analytics project and the email provider, what the user will have to do themselves (verify the sending domain; create this project's email API key and add it in the panel), and that one test email will be sent to their own address;
-- the keys the project needs: the project keys the user will create and add in the panel (stored in this project's Vercel variables), and the account keys, which are already in the vault or also waiting in the panel;
+- the keys the project needs: the project keys the user will create and add in the panel (stored in this project's Vercel variables), and, with a vault, the account keys, which are already in it or also waiting in the panel;
 - if cloud sessions were chosen: the session hook that will be committed in `.claude/settings.json`, and whether the user has a one-time environment to create (preflight `cloud_env: none`);
 - the files that will be written, and anything preflight found that will be left untouched.
 
@@ -111,7 +111,7 @@ Run the steps in this order. The order matters: scaffolding tools refuse a direc
 
 Steps 7 to 9 add code and files after the first push: commit them and push again at the end, as one or several commits. That push deploys to production now that the repo is connected, which the recap announced.
 
-Secrets (connection strings, API keys, database passwords) never appear in chat, in a commit or in a document. Pipe them from one command into the next, or into `.env.local`. Account keys come from the vault (`coffre run -- <command>`); project keys go to the project's Vercel variables; a missing one of either kind is added by the user in the panel.
+Secrets (connection strings, API keys, database passwords) never appear in chat, in a commit or in a document. Pipe them from one command into the next, or into `.env.local`. Project keys go to the project's Vercel variables, where the user adds a missing one in the panel. Account keys come from the vault when there is one (`vault run -- <command>`, a missing one is added in the panel too), and from the CLIs' own logins otherwise.
 
 A step that waits for a key does not block the others: mark it in the panel, do everything else, and come back to it.
 
@@ -135,7 +135,7 @@ Never overwrite one of these files if it already exists. If it exists, leave it 
 
 Fill the commands section of `CLAUDE.md` from the real `package.json` scripts, not from memory. `{{agents_import}}` becomes the line `@AGENTS.md` if the scaffold created an `AGENTS.md`, and is removed otherwise.
 
-`{{cloud_tokens}}` is one of two sentences. With a vault: "`VERCEL_TOKEN` comes from the environment's variables; every other key comes from the key vault: run the command as `scripts/coffre run -- <command>`. Never print a key or write one into a file." Without: "Tokens come from the environment's variables (`VERCEL_TOKEN`, `NEON_API_KEY`...). Never write one into a file."
+`{{cloud_tokens}}` is one of two sentences. With a vault: "`VERCEL_TOKEN` comes from the environment's variables; every other key comes from the key vault: run the command as `scripts/vault run -- <command>`. Never print a key or write one into a file." Without: "Tokens come from the environment's variables (`VERCEL_TOKEN`, `NEON_API_KEY`...). Never write one into a file."
 
 `CLAUDE.md` is written with the first documents and completed at the end: its Analytics, Email and Cloud sessions sections are filled once those steps have run. Remove the section of anything the user did not choose.
 

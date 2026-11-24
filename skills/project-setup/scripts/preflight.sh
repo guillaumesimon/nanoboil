@@ -37,10 +37,23 @@ check() {
   fi
 }
 
-check gh       gh       "brew install gh"                "gh auth login"   gh auth status
-check vercel   vercel   "pnpm add -g vercel@latest"      "vercel login"    vercel whoami
-check neon     neon     "brew install neonctl"           "neon auth"       neon me
-check supabase supabase "brew install supabase/tap/supabase" "supabase login" supabase projects list
+# Install hints: Homebrew where it exists (macOS, some Linux), otherwise npm or the vendor's page.
+if have brew; then
+  gh_install="brew install gh"
+  neon_install="brew install neonctl"
+  supabase_install="brew install supabase/tap/supabase"
+else
+  gh_install="see https://github.com/cli/cli#installation"
+  neon_install="npm install -g neonctl"
+  supabase_install="see https://supabase.com/docs/guides/local-development/cli/getting-started"
+fi
+
+neon_bin="$(command -v neon || command -v neonctl || echo neon)"
+
+check gh       gh          "$gh_install"               "gh auth login"   gh auth status
+check vercel   vercel      "npm install -g vercel@latest" "vercel login" vercel whoami
+check neon     "$neon_bin" "$neon_install"             "neon auth"       "$neon_bin" me
+check supabase supabase    "$supabase_install"         "supabase login"  supabase projects list
 
 if have gh; then
   login="$(gh api user --jq .login 2>/dev/null)"
@@ -51,16 +64,18 @@ if have vercel; then
   [ -n "$scope" ] && echo "vercel_user: $scope"
 fi
 
-# The user's API key vault, if they have one. Names only, never values.
-if [ -x "$HOME/.claude/bin/coffre" ]; then
-  if names="$("$HOME/.claude/bin/coffre" ls 2>/dev/null | awk '$1 ~ /^[A-Z][A-Z0-9_]+$/ && NF > 2 {print $1}' | sort | tr '\n' ' ')" && [ -n "$names" ]; then
-    echo "vault: ok (~/.claude/bin/coffre)"
+# The user's API key vault, if they have one (references/vault.md). Names only, never values.
+vault_bin="${PROJECT_SETUP_VAULT:-$HOME/.claude/bin/vault}"
+vault_shown="~${vault_bin#"$HOME"}"; [ "$vault_shown" = "~$vault_bin" ] && vault_shown="$vault_bin"
+if [ -x "$vault_bin" ]; then
+  if names="$("$vault_bin" ls 2>/dev/null | awk '$1 ~ /^[A-Z][A-Z0-9_]+$/ && NF > 2 {print $1}' | sort | tr '\n' ' ')" && [ -n "$names" ]; then
+    echo "vault: ok ($vault_shown)"
     echo "vault_keys: $names"
   else
-    echo "vault: UNREACHABLE (~/.claude/bin/coffre exists but could not list keys; check vercel login)"
+    echo "vault: UNREACHABLE ($vault_shown exists but could not list keys; run \`vault init\` if it was never configured, otherwise check vercel login)"
   fi
 else
-  echo "vault: none"
+  echo "vault: none (optional, see references/vault.md)"
 fi
 
 echo

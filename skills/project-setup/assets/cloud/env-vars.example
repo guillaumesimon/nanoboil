@@ -8,9 +8,8 @@
 # sessions the API keys but not the app's DATABASE_URL.
 VERCEL_TOKEN=
 
-# With a key vault (~/.claude/bin/coffre), stop here: every other key is read from it.
+# With a key vault (references/vault.md in the skill), stop here: every other key is read from it.
 # Without one, also fill the tokens of the services you use:
 # NEON_API_KEY=            https://console.neon.tech/app/settings/api-keys
 # SUPABASE_ACCESS_TOKEN=   https://supabase.com/dashboard/account/tokens
-# FAL_KEY=
-# ELEVENLABS_API_KEY=
+# ...and any other account key your projects call (FAL_KEY, ELEVENLABS_API_KEY...).

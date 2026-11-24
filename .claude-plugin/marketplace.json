@@ -1,0 +1,15 @@
+{
+  "name": "nanoboil",
+  "description": "Skills that take a small project from an empty directory to a deployed, documented starting point.",
+  "owner": {
+    "name": "Guillaume Simon",
+    "url": "https://github.com/guillaumesimon"
+  },
+  "plugins": [
+    {
+      "name": "nanoboil",
+      "source": "./",
+      "description": "The project-setup skill: from an empty directory to a deployed, documented project."
+    }
+  ]
+}

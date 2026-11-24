@@ -12,7 +12,6 @@ fal.run
 *.fal.ai
 *.fal.media
 api.elevenlabs.io
-api.appstoreconnect.apple.com
 *.posthog.com
 *.amplitude.com
 api.resend.com

@@ -40,13 +40,13 @@ unset value
 
 The project's Vercel variables hold what the deployed app reads: the database URL, and the keys issued for this product (email provider, analytics, payments). The user adds a secret project key in the companion panel, which stores it here for the three environments - see "Two kinds of keys" in `panel.md`.
 
-The user's vault (`~/.claude/bin/coffre`) holds their own account keys, which you use to run CLIs during development (`coffre run -- neon ...`). Do not copy a key from the vault into a project as a matter of course. The one case where it is right is an account-level service the app itself calls at runtime (the app generates images with the user's fal.ai account, say), and only after asking the user, since it puts their personal key in the deployed app:
+The user's vault, when they have one (`references/vault.md`), holds their own account keys, which you use to run CLIs during development (`vault run -- neon ...`). Without a vault, those keys are whatever the CLIs' own logins and the shell environment provide. Do not copy a key from the vault into a project as a matter of course. The one case where it is right is an account-level service the app itself calls at runtime (the app generates images with the user's fal.ai account, say), and only after asking the user, since it puts their personal key in the deployed app:
 
 ```bash
-coffre run -- sh -c 'for env in production preview development; do printf %s "$FAL_KEY" | vercel env add FAL_KEY "$env"; done'
+vault run -- sh -c 'for env in production preview development; do printf %s "$FAL_KEY" | vercel env add FAL_KEY "$env"; done'
 ```
 
-The single quotes matter: the variable must be expanded by the inner shell, which has the key, not by yours, which does not. `coffre run` leaves the Vercel link of the current directory alone, so `vercel` inside it targets this project. Run it from the project directory.
+The single quotes matter: the variable must be expanded by the inner shell, which has the key, not by yours, which does not. `vault run` leaves the Vercel link of the current directory alone, so `vercel` inside it targets this project. Run it from the project directory.
 
 Then list them, names only:
 

@@ -6,7 +6,7 @@
 #
 # VERCEL_TOKEN comes from the cloud environment's variables. The other tokens (NEON_API_KEY,
 # SUPABASE_ACCESS_TOKEN...) come either from those variables too, or from the key vault through
-# scripts/coffre when the project has one: `scripts/coffre run -- <command>`.
+# scripts/vault when the project has one: `scripts/vault run -- <command>`.
 # Nothing secret is stored in this file. Never prints a secret.
 # Always exits 0: a broken tool must not block the session.
 
@@ -28,8 +28,8 @@ neon_bin="$(command -v neon || command -v neonctl)"
 
 # The key vault, when the project carries its script. Reachable only with a working Vercel login.
 vault=""
-if [ -x scripts/coffre ] && have vercel && scripts/coffre run -- true >/dev/null 2>&1; then
-  vault="scripts/coffre"
+if [ -x scripts/vault ] && have vercel && scripts/vault run -- true >/dev/null 2>&1; then
+  vault="scripts/vault"
 fi
 
 # --- prepare -----------------------------------------------------------------
@@ -66,7 +66,7 @@ report() {
     if [ "$CLAUDE_CODE_REMOTE" != "true" ] && "$@" >/dev/null 2>&1; then
       echo "- $label: ok here through the CLI's own login"
     elif [ "$var" != "VERCEL_TOKEN" ] && [ -n "$vault" ] && "$vault" run -- "$@" >/dev/null 2>&1; then
-      echo "- $label: ok through the vault - run it as: scripts/coffre run -- $(basename "$bin") ..."
+      echo "- $label: ok through the vault - run it as: scripts/vault run -- $(basename "$bin") ..."
     elif [ "$var" != "VERCEL_TOKEN" ] && [ -n "$vault" ]; then
       echo "- $label: the vault is reachable but the call failed ($var missing from the vault, expired, or host not in allowed domains)"
     else
@@ -85,14 +85,14 @@ report "github (gh api)" gh "" gh api user
 [ -f .neon ] && report neon "$neon_bin" NEON_API_KEY "$neon_bin" me
 [ -n "$SUPABASE_REF" ] && report supabase supabase SUPABASE_ACCESS_TOKEN supabase projects list
 
-if [ -x scripts/coffre ]; then
-  if [ -n "$vault" ]; then echo "- key vault: ok (scripts/coffre run -- <command>)"
+if [ -x scripts/vault ]; then
+  if [ -n "$vault" ]; then echo "- key vault: ok (scripts/vault run -- <command>)"
   else echo "- key vault: NOT reachable (VERCEL_TOKEN missing or expired, or vercel CLI not installed)"; fi
 fi
 
 for key in $EXTRA_KEYS; do
   if [ -n "${!key}" ]; then echo "- $key: set"
-  elif [ -n "$vault" ] && "$vault" run -- sh -c "[ -n \"\${$key}\" ]" >/dev/null 2>&1; then echo "- $key: in the vault (scripts/coffre run -- <command>)"
+  elif [ -n "$vault" ] && "$vault" run -- sh -c "[ -n \"\${$key}\" ]" >/dev/null 2>&1; then echo "- $key: in the vault (scripts/vault run -- <command>)"
   else echo "- $key: NOT set (add it to the vault, or to the environment variables)"; fi
 done
 

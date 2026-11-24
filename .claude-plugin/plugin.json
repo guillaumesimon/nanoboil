@@ -1,0 +1,10 @@
+{
+  "name": "nanoboil",
+  "description": "From an empty directory to a scaffolded, deployed and documented project after a short interview: GitHub, Neon or Supabase, Vercel, founding documents, analytics, email and Claude Code cloud sessions.",
+  "version": "0.1.0",
+  "author": { "name": "Guillaume Simon", "url": "https://github.com/guillaumesimon" },
+  "homepage": "https://github.com/guillaumesimon/nanoboil",
+  "repository": "https://github.com/guillaumesimon/nanoboil",
+  "license": "MIT",
+  "keywords": ["project-setup", "boilerplate", "vercel", "neon", "supabase", "analytics"]
+}

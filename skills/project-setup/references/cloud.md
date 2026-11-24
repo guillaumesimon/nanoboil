@@ -65,10 +65,11 @@ If the user has no access to cloud sessions yet, `/web-setup` in the Claude Code
 3. **Key vault** - if preflight shows `vault: ok`, copy the vault script into the repo so cloud sessions can use it, since `~/.claude` does not exist there:
 
    ```bash
-   cp ~/.claude/bin/coffre scripts/coffre && chmod +x scripts/coffre
+   cp ~/.claude/bin/vault scripts/vault && chmod +x scripts/vault
+   ~/.claude/bin/vault conf > scripts/vault.conf
    ```
 
-   Read it first and check it holds ids only (a Vercel team id and project id), no token. In a public repo those ids become public; ask the user before committing it there. Cloud sessions then run `scripts/coffre run -- <command>` for anything that needs a key (`scripts/coffre run -- neon projects list --org-id ...`).
+   `vault.conf` holds two ids (the vault's Vercel team id and project id), no token: the script reads it from its own directory. In a public repo those ids become public; ask the user before committing it there. Cloud sessions then run `scripts/vault run -- <command>` for anything that needs a key (`scripts/vault run -- neon projects list --org-id ...`).
 4. **Neon** - make sure `.neon` is committed: it is what points the CLI at the project in the cloud.
 5. **Rules** - the user's global `CLAUDE.md` does not exist in the cloud. The project `CLAUDE.md` template has a "Cloud sessions" section; fill it, and carry over the rules from the user's global file that the project depends on (CLI safety rules), never personal details.
 6. **Environment variables of the app** - they already live in Vercel; the session script pulls them into `.env.local` at session start. Nothing to copy by hand.
@@ -80,7 +81,7 @@ If the user has no access to cloud sessions yet, `/web-setup` in the Claude Code
 
    Locally, token variables are usually unset (the CLIs use their own login), so "X is not set" lines are expected there. What matters is that the script runs without error and names the right project.
 
-Commit `scripts/cloud-session.sh`, `scripts/coffre` if there is one, and `.claude/settings.json` with the rest of the setup.
+Commit `scripts/cloud-session.sh`, `scripts/vault` and `scripts/vault.conf` if there is a vault, and `.claude/settings.json` with the rest of the setup.
 
 ## Verify in the cloud
 

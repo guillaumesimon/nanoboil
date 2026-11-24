@@ -1,0 +1,110 @@
+#!/bin/sh
+# vault: one place for the API keys of your own accounts, stored as the "development"
+# environment variables of a dedicated Vercel project. No key is ever written to disk.
+#
+#   vault init [name] [--team <slug>]   create (or reuse) the Vercel project and remember its ids.
+#                            Default name: vault. --team is needed when the account has several teams.
+#   vault run -- <command>   run the command with every key in its environment
+#   vault ls                 list the key names (never the values)
+#   vault set NAME           add or replace a key, value read from standard input
+#   vault rm NAME            remove a key
+#   vault conf               print the ids this vault points at (ids, not secrets)
+#
+# Locally it uses your `vercel login` session. In CI or a cloud session, set VERCEL_TOKEN.
+#
+# The ids come from, in order: the VAULT_ORG_ID and VAULT_PROJECT_ID variables, a vault.conf
+# file next to this script (for a copy committed in a project), then ~/.claude/vault.conf.
+set -e
+
+HOME_CONF="${VAULT_CONF:-$HOME/.claude/vault.conf}"
+LOCAL_CONF="$(dirname "$0")/vault.conf"
+
+read_conf() {
+  [ -f "$1" ] || return 0
+  [ -n "$VAULT_ORG_ID" ] || VAULT_ORG_ID="$(sed -n 's/^VAULT_ORG_ID=//p' "$1" | head -1)"
+  [ -n "$VAULT_PROJECT_ID" ] || VAULT_PROJECT_ID="$(sed -n 's/^VAULT_PROJECT_ID=//p' "$1" | head -1)"
+}
+
+load() {
+  read_conf "$LOCAL_CONF"
+  read_conf "$HOME_CONF"
+  if [ -z "$VAULT_ORG_ID" ] || [ -z "$VAULT_PROJECT_ID" ]; then
+    echo "vault: not configured. Run: vault init" >&2
+    exit 3
+  fi
+}
+
+v() { VERCEL_ORG_ID="$VAULT_ORG_ID" VERCEL_PROJECT_ID="$VAULT_PROJECT_ID" vercel "$@"; }
+
+usage() {
+  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+  exit 2
+}
+
+cmd=$1
+[ $# -gt 0 ] && shift
+case "$cmd" in
+  init)
+    name="vault"; team=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --team) team="$2"; shift 2 ;;
+        *) name="$1"; shift ;;
+      esac
+    done
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    # An account with several teams has no default in a non-interactive shell: name one.
+    set -- --yes --project "$name"
+    [ -n "$team" ] && set -- "$@" --scope "$team"
+    # Fails harmlessly when the project already exists: the link below then reuses it.
+    vercel project add "$name" ${team:+--scope "$team"} >/dev/null 2>&1 || true
+    (cd "$tmp" && vercel link "$@" >"$tmp/link.log" 2>&1) || {
+      echo "vault: could not link the Vercel project \"$name\"." >&2
+      if grep -q missing_scope "$tmp/link.log"; then
+        echo "Your account has several teams. Run: vault init $name --team <slug>, with one of:" >&2
+        sed -n 's/.*"name": *"\([^"]*\)".*/  \1/p' "$tmp/link.log" >&2
+      else
+        echo "Check \`vercel whoami\`. Last lines from vercel:" >&2
+        tail -5 "$tmp/link.log" >&2
+      fi
+      exit 1
+    }
+    json="$tmp/.vercel/project.json"
+    org="$(sed -n 's/.*"orgId" *: *"\([^"]*\)".*/\1/p' "$json")"
+    project="$(sed -n 's/.*"projectId" *: *"\([^"]*\)".*/\1/p' "$json")"
+    [ -n "$org" ] && [ -n "$project" ] || { echo "vault: could not read the project ids." >&2; exit 1; }
+    mkdir -p "$(dirname "$HOME_CONF")"
+    printf 'VAULT_ORG_ID=%s\nVAULT_PROJECT_ID=%s\n' "$org" "$project" > "$HOME_CONF"
+    echo "vault: ready, using the Vercel project \"$name\" ($HOME_CONF)"
+    ;;
+  run)
+    [ "$1" = "--" ] && shift
+    [ $# -gt 0 ] || { echo "usage: vault run -- <command>" >&2; exit 2; }
+    load
+    # The vault's ids are removed from the command's environment, so that a `vercel deploy`
+    # started inside it does not target the vault project.
+    v env run -- env -u VERCEL_ORG_ID -u VERCEL_PROJECT_ID "$@"
+    ;;
+  ls)
+    load
+    v env ls development
+    ;;
+  set)
+    [ -n "$1" ] || { echo "usage: vault set NAME  (value on standard input)" >&2; exit 2; }
+    load
+    v env add "$1" development --force
+    ;;
+  rm)
+    [ -n "$1" ] || { echo "usage: vault rm NAME" >&2; exit 2; }
+    load
+    v env rm "$1" development --yes
+    ;;
+  conf)
+    load
+    printf 'VAULT_ORG_ID=%s\nVAULT_PROJECT_ID=%s\n' "$VAULT_ORG_ID" "$VAULT_PROJECT_ID"
+    ;;
+  *)
+    usage
+    ;;
+esac
